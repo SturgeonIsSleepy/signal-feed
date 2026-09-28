@@ -1,0 +1,32 @@
+.gradle/
+.gradle-user/
+.kotlin/
+.idea/
+build/
+**/build/
+mod-builds/
+local.properties
+*.iml
+*.log
+worker/node_modules/
+worker/.wrangler/
+worker/.config/
+worker/.cache/
+worker/.dev.vars
+app/google-services.json
+
+# Generated classes; documented ZIP examples and the immutable source baseline are tracked.
+/mods/runtime-example/classes/
+/mods/runtime-example/dex/
+/mods/code-example/
+/mods/example-code-mod.zip
+/mods/restore/
+/mods/restore-original.zip
+/mods/personal-news-filter.zip
+/mods/global-image-background.zip
+/mods/baselines/signalfeed-0.6.0.zip
+/mods/baselines/signalfeed-0.6.0.json
+/tools/create-background-mod.ps1
+
+# Local release assets
+/release-artifacts/

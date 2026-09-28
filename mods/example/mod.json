@@ -1,0 +1,8 @@
+{
+  "formatVersion": 1,
+  "id": "personal-news-filter",
+  "name": "个人新闻过滤示例",
+  "version": "1.0",
+  "hideKeywords": ["习言道", "学习进行时", "直播海报"],
+  "hideAccounts": []
+}

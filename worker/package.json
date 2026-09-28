@@ -1,0 +1,17 @@
+{
+  "name": "signal-feed-worker",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev --test-scheduled",
+    "test": "node --test test/*.test.ts",
+    "typecheck": "tsc --noEmit",
+    "deploy": "wrangler deploy",
+    "db:local": "wrangler d1 migrations apply signal-feed --local",
+    "db:remote": "wrangler d1 migrations apply signal-feed --remote"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.0",
+    "wrangler": "^4.34.0"
+  }
+}
