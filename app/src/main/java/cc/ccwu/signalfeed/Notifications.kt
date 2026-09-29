@@ -27,6 +27,12 @@ object Notifications {
     fun configure(context: Context) {
         val manager = context.getSystemService(NotificationManager::class.java)
         manager.createNotificationChannel(NotificationChannel(channel, "Breaking", NotificationManager.IMPORTANCE_HIGH))
+        val rules = ShellPacks.get(context).breakingPacks.value
+        if (rules.isEmpty()) {
+            WorkManager.getInstance(context).cancelUniqueWork("breaking-poll")
+            if (FirebaseApp.getApps(context).isNotEmpty()) FirebaseMessaging.getInstance().unsubscribeFromTopic(channel)
+            return
+        }
         if (BuildConfig.FCM_APP_ID.isNotBlank() && BuildConfig.FCM_API_KEY.isNotBlank() &&
             BuildConfig.FCM_PROJECT_ID.isNotBlank() && BuildConfig.FCM_SENDER_ID.isNotBlank()) {
             if (FirebaseApp.getApps(context).isEmpty()) {
@@ -37,15 +43,21 @@ object Notifications {
             }
             FirebaseMessaging.getInstance().subscribeToTopic(channel)
         }
-        if (!BuildConfig.API_BASE_URL.contains("example.invalid")) {
+        if (ShellPacks.get(context).sourceApi.value != null || Subscriptions.get(context).items.value.isNotEmpty()) {
             val work = PeriodicWorkRequestBuilder<BreakingPollWorker>(15, TimeUnit.MINUTES).build()
             WorkManager.getInstance(context).enqueueUniquePeriodicWork("breaking-poll", ExistingPeriodicWorkPolicy.KEEP, work)
-        }
+        } else WorkManager.getInstance(context).cancelUniqueWork("breaking-poll")
     }
 
     suspend fun show(context: Context, postId: String, accountId: String, body: String) {
         val account = FeedDatabase.get(context).feedDao().account(accountId) ?: return
+        if (!accountId.startsWith("sub:") && accountId !in ShellPacks.get(context).sourceAccounts.value) return
+        if (accountId.startsWith("sub:") && Subscriptions.get(context).items.value.none { it.id == accountId && it.enabled }) return
         if (!account.followed || account.muted) return
+        val dao = FeedDatabase.get(context).feedDao()
+        val post = dao.post(postId) ?: return
+        if (!ImportedRules.breaking(ShellPacks.get(context).breakingPacks.value, body, accountId,
+                dao.postTopicIds(postId).toSet(), post.importance)) return
         val preferences = context.getSharedPreferences("notifications", Context.MODE_PRIVATE)
         val seen = preferences.getStringSet("seen", emptySet()).orEmpty()
         if (postId in seen) return
@@ -69,7 +81,7 @@ object Notifications {
 
 class BreakingMessagingService : FirebaseMessagingService() {
     override fun onNewToken(token: String) {
-        if (FirebaseApp.getApps(this).isNotEmpty()) FirebaseMessaging.getInstance().subscribeToTopic("breaking")
+        if (FirebaseApp.getApps(this).isNotEmpty() && ShellPacks.get(this).breakingPacks.value.isNotEmpty()) FirebaseMessaging.getInstance().subscribeToTopic("breaking")
     }
     override fun onMessageReceived(message: RemoteMessage) {
         val postId = message.data["postId"] ?: return
@@ -87,7 +99,11 @@ class BreakingPollWorker(context: Context, params: WorkerParameters) : Coroutine
             val dao = FeedDatabase.get(applicationContext).feedDao()
             val preferences = applicationContext.getSharedPreferences("notifications", Context.MODE_PRIVATE)
             val initialized = preferences.getBoolean("initialized", false)
-            val recent = dao.breakingPosts().filter { it.publishedAt >= System.currentTimeMillis() - 24 * 60 * 60_000 }
+            val rules = ShellPacks.get(applicationContext).breakingPacks.value
+            if (rules.isEmpty()) return Result.success()
+            val recent = dao.recentPosts(System.currentTimeMillis() - 24 * 60 * 60_000).filter {
+                ImportedRules.breaking(rules, it.body, it.accountId, dao.postTopicIds(it.id).toSet(), it.importance)
+            }
             if (!initialized) {
                 preferences.edit().putStringSet("seen", recent.map { it.id }.toSet()).putBoolean("initialized", true).apply()
             } else recent.forEach { Notifications.show(applicationContext, it.id, it.accountId, it.body) }

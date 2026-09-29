@@ -32,7 +32,8 @@ class MainActivity : ComponentActivity() {
         model = ViewModelProvider(this)[FeedViewModel::class.java]
         model.targetPostId.value = intent.getStringExtra("postId")
         Notifications.configure(this)
-        if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+        if (Build.VERSION.SDK_INT >= 33 && ShellPacks.get(this).breakingPacks.value.isNotEmpty() &&
+            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1)
         }
         setContent { SignalFeedApp(model) }
@@ -65,7 +66,7 @@ class FeedViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             repository.initialize()
             refresh()
-            runCatching { repository.refreshF1() }
+
         }
     }
 

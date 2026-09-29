@@ -1,0 +1,9 @@
+{
+  "formatVersion": 1,
+  "id": "tibo-quota-reset",
+  "name": "Tibo 额度重置提醒",
+  "description": "仅匹配 Tibo 订阅中的额度、用量重置或已到账表达",
+  "accounts": ["sub:b9ccbece818e72078e7cfd24"],
+  "minimumImportance": 0,
+  "bodyRegex": "(?is)(?:(?=.*(?:quota|usage|limits?|credits?|额度|用量|使用量|次数))(?=.*(?:reset|resets|resetting|refill|replenish|renew|restore|refresh|重置|恢复|刷新|补充))|all\\s+reset|resets?\\s+all|resets?\\s+propagated|banked\\s+reset|reset\\s+for\\s+everyone|全部重置|重置已到账)"
+}

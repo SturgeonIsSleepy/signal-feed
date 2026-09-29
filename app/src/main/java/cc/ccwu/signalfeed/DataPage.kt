@@ -22,9 +22,9 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-private val DataInk = Color(0xFF0F1419)
+private val DataInk: Color @Composable get() = LocalShellColors.current.text
 private val DataSoft = Color(0xFF536471)
-private val DataBlue = Color(0xFF1D9BF0)
+private val DataBlue: Color @Composable get() = LocalShellColors.current.accent
 
 internal fun dataRowKey(section: String, id: String, index: Int) = "$section:$index:$id"
 internal fun chartFraction(value: Double?, maximum: Double): Float =
@@ -33,8 +33,9 @@ internal fun chartFraction(value: Double?, maximum: Double): Float =
 
 @Composable
 internal fun DataPage(f1: F1Snapshot?, ai: AiSnapshot?, f1Message: String?, aiMessage: String?, now: Long,
-    onF1Refresh: () -> Unit, onAiRefresh: () -> Unit) {
-    var tab by rememberSaveable { mutableIntStateOf(0) }
+    onF1Refresh: () -> Unit, onAiRefresh: () -> Unit, tabs: List<Int> = listOf(0, 1, 2)) {
+    var selectedTab by rememberSaveable { mutableIntStateOf(0) }
+    val tab = tabs.getOrElse(selectedTab) { tabs.first() }
     var teams by rememberSaveable { mutableStateOf(false) }
     var selectedDrivers by rememberSaveable(f1?.year) { mutableStateOf<List<String>?>(null) }
     var selectedTeams by rememberSaveable(f1?.year) { mutableStateOf<List<String>?>(null) }
@@ -54,9 +55,9 @@ internal fun DataPage(f1: F1Snapshot?, ai: AiSnapshot?, f1Message: String?, aiMe
                 Icon(FeedIcons.Refresh, "刷新当前数据", tint = DataInk)
             }
         }
-        TabRow(selectedTabIndex = tab, containerColor = Color.White, contentColor = DataBlue) {
-            listOf("赛历", "积分", "模型榜").forEachIndexed { index, name ->
-                Tab(selected = tab == index, onClick = { tab = index }, selectedContentColor = DataBlue,
+        TabRow(selectedTabIndex = selectedTab.coerceIn(0, tabs.lastIndex), containerColor = Color.White, contentColor = DataBlue) {
+            tabs.map { listOf("赛历", "积分", "模型榜")[it] }.forEachIndexed { index, name ->
+                Tab(selected = selectedTab == index, onClick = { selectedTab = index }, selectedContentColor = DataBlue,
                     unselectedContentColor = DataSoft, text = { Text(name) })
             }
         }

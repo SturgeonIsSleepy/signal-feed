@@ -10,7 +10,7 @@ class ReadingAndModelsTest {
         assertEquals(ReadablePost(original, emptyList(), null), readablePost(original, "wuxing", false))
         val settings = FeatureSettings(mapOf(Feature.MODEL_CHARTS.key to false))
         assertFalse(settings.enabled(Feature.MODEL_CHARTS))
-        assertTrue(settings.enabled(Feature.NEW_SOURCES))
+        assertTrue(settings.enabled(Feature.SUBSCRIPTIONS))
         assertTrue(settings.enabled(Feature.CLEAN_TEXT))
     }
     @Test fun separatesWeiboMetadataWithoutDeletingBodyPhrases() {

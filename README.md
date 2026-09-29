@@ -16,11 +16,17 @@
 
 - `app/`：Android 客户端与宿主模块 API
 - `worker/`：TypeScript Worker、来源适配器、D1 迁移
-- `docs/`：Mod 与信息源订阅的格式规范
-- `mods/`：Mod 示例、源码包基线和 DEX 打包脚本
-- `subscriptions/`：JSON/OPML 导入示例
+- `project-specs/`：项目设置规范、导入文件格式和 Mod 规范
+- `imported-modules/`：可导入文件，分为订阅、应用配置和 ZIP Mod
+- `mods/`：Mod 源码示例、源码包基线和 DEX 打包脚本
+- `tools/`：本机构建与打包脚本
+- `release-artifacts/`：本地 APK 版本，不进入源码仓库
+- `mod-builds/`、`downloads/`：本地构建记录与第三方工具，均不进入源码仓库
+- `AGENTS.md`：所有代码对话共用的项目边界和协作规则
 
-扩展入口见[规范索引](docs/EXTENSIONS.md)。
+扩展入口见[规范索引](project-specs/EXTENSIONS.md)。
+
+导入格式文档仅保存在 `project-specs/import-formats/`，不会打进 APK。APK 只允许主对话在收到用户明确要求后处理；分支对话规则见 [AGENTS.md](AGENTS.md) 和 [APK 工作流](project-specs/APK_WORKFLOW.md)。
 
 ## 构建
 
@@ -30,17 +36,20 @@
 ./gradlew.bat :app:assembleDebug
 ```
 
-设置 `apiBaseUrl` Gradle 属性以构建连接自己 Worker 的版本。FCM 和 Artificial Analysis 凭据使用本机未跟踪配置或 Worker Secret；不要写入源码、提交记录或 APK。
+聚合服务地址在安装后通过应用内导入配置，不需要编进 APK。FCM 客户端配置保存在本机未跟踪配置中，Artificial Analysis 密钥保存在 Worker Secret；不要写入源码或提交记录。
 
 Worker 开发命令：在 `worker/` 安装依赖后运行 `npm test`、`npm run typecheck`、`npm run db:local`、`npm run dev`。部署前配置自己的 Cloudflare D1 绑定和 Secrets。
 
 ## 文档
 
-- [Mod 格式总规范](docs/CODE_MOD_SPEC.md)
-- [手机运行时 DEX 模块 API 1](docs/MOBILE_MOD_SPEC.md)
-- [信息源订阅格式规范](docs/SUBSCRIPTION_SPEC.md)
+- [项目设置规范](project-specs/PROJECT_SETUP.md)
+- [APK 工作流与分支边界](project-specs/APK_WORKFLOW.md)
+- [Mod 格式总规范](project-specs/CODE_MOD_SPEC.md)
+- [手机运行时 DEX 模块 API 1](project-specs/MOBILE_MOD_SPEC.md)
+- [信息源订阅格式规范](project-specs/SUBSCRIPTION_SPEC.md)
 - [源码 Mod 干净基线](mods/baselines/signalfeed-0.7.0.zip)
-- [运行时 DEX 模块示例](mods/runtime-home-example.zip)
-- [订阅 JSON 示例](subscriptions/example.json)
+- [运行时 DEX 模块示例](imported-modules/mods/runtime-home-example.zip)
+- [订阅 JSON 示例](imported-modules/source-subscriptions/example.json)
+- [全部导入文件](imported-modules/)
 
 运行时模块以宿主权限执行；源码 Mod 只能对匹配的干净基线重建 APK。只导入可信代码。卸载 Mod 会恢复 APK 代码，但不会回滚它写入的数据库、偏好或远端服务数据。

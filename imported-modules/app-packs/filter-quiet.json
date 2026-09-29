@@ -1,0 +1,1 @@
+{"formatVersion":1,"id":"quiet-feed","name":"低信息量过滤","rules":[{"action":"hide","bodyRegex":"^(?:转发微博|分享图片|敬请期待|Stay tuned|Read more)[!！。\\s]*$"},{"action":"hide","bodyRegex":"^(?:习言道|学习时节|学习进行时)"}]}

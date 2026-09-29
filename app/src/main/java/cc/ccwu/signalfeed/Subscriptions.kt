@@ -46,21 +46,21 @@ internal class Subscriptions private constructor(private val context: Context) {
             val parsed = url.toHttpUrlOrNull() ?: error("订阅地址无效")
             require(parsed.isHttps && parsed.username.isEmpty() && parsed.password.isEmpty()) { "订阅需要 HTTPS 地址" }
             require(name.isNotBlank() && name.length <= 120)
-            require(topic in listOf("F1", "AI", "玩机", "国内", "全球")) { "主题应为 F1、AI、玩机、国内或全球" }
+            require(topic.isNotBlank() && topic.length <= 32) { "主题长度应为 1 至 32 个字符" }
             result += Subscription(parsed.toString(), name, topic, enabled)
         }
         if (text.trimStart('\uFEFF', ' ', '\r', '\n').startsWith('<')) {
             val xml = parser(text)
             while (xml.eventType != XmlPullParser.END_DOCUMENT) {
                 if (xml.eventType == XmlPullParser.START_TAG && xml.name == "outline") {
-                    xml.getAttributeValue(null, "xmlUrl")?.let { url -> add(url, xml.getAttributeValue(null, "title") ?: xml.getAttributeValue(null, "text") ?: url, xml.getAttributeValue(null, "category")?.takeIf { it in listOf("F1", "AI", "玩机", "国内", "全球") } ?: "全球") }
+                    xml.getAttributeValue(null, "xmlUrl")?.let { url -> add(url, xml.getAttributeValue(null, "title") ?: xml.getAttributeValue(null, "text") ?: url, xml.getAttributeValue(null, "category") ?: "其他") }
                 }
                 xml.next()
             }
         } else {
             val array = JSONObject(text).getJSONArray("subscriptions")
             require(array.length() <= 100)
-            for (i in 0 until array.length()) { val row = array.getJSONObject(i); add(row.getString("url"), row.getString("name"), row.optString("topic", "全球"), row.optBoolean("enabled", true)) }
+            for (i in 0 until array.length()) { val row = array.getJSONObject(i); add(row.getString("url"), row.getString("name"), row.optString("topic", "其他"), row.optBoolean("enabled", true)) }
         }
         require(result.size <= 100); return result.distinctBy { it.url }
     }
@@ -70,6 +70,7 @@ internal class Subscriptions private constructor(private val context: Context) {
         for (subscription in items.value.filter { it.enabled }) {
             val id = subscription.id
             if (dao.account(id) == null) dao.upsertAccounts(listOf(AccountEntity(id, subscription.name, "@subscription")))
+            dao.insertTopics(listOf(TopicEntity(subscription.topic, subscription.topic)))
             try {
                 client.newCall(Request.Builder().url(RuntimeModules.url(subscription.url)).header("User-Agent", "SignalFeed/0.7 RSS reader").build()).execute().use { response ->
                     check(response.isSuccessful) { "HTTP ${response.code}" }

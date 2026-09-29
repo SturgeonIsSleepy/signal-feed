@@ -29,8 +29,11 @@ private suspend fun <T> Task<T>.result(): T = suspendCancellableCoroutine { cont
 }
 
 @Composable internal fun TranslatableBody(original: String, postId: String, hasTitle: Boolean = true) {
-    val cloudEnabled = LocalFeatures.current.enabled(Feature.CLOUD_TRANSLATION)
     val context = LocalContext.current
+    val providers by ShellPacks.get(context).translatorPacks.collectAsState()
+    val provider = providers.firstOrNull()
+    val cloudEnabled = provider?.optString("mode") == "worker"
+    val deviceEnabled = provider?.optString("mode") == "device" || provider?.optString("fallback") == "device"
     val scope = rememberCoroutineScope()
     var translated by remember(original) { mutableStateOf<String?>(null) }
     var showTranslation by remember(original) { mutableStateOf(false) }
@@ -59,7 +62,7 @@ private suspend fun <T> Task<T>.result(): T = suspendCancellableCoroutine { cont
                             if (source == TranslateLanguage.CHINESE) { status = "正文已是中文。"; return@withTimeout }
                             status = "正在云端翻译，保留专业术语和完整正文…"
                             val hash = cache.name.removePrefix("cloud-v1-").removeSuffix(".txt")
-                            val cloud = try { if (cloudEnabled) CloudTranslation.translate(postId, hash) else null }
+                            val cloud = try { if (cloudEnabled) CloudTranslation.translate(provider!!.getString("url"), postId, hash) else null }
                                 catch (cancelled: CancellationException) { throw cancelled }
                                 catch (_: Exception) { null }
                             if (cloud != null) {
@@ -67,6 +70,7 @@ private suspend fun <T> Task<T>.result(): T = suspendCancellableCoroutine { cont
                                 translated = cloud; showTranslation = true; status = null
                                 return@withTimeout
                             }
+                            if (!deviceEnabled) { status = "此翻译器不可用，请检查导入的服务和网络。"; return@withTimeout }
                             engine = if (cloudEnabled) "Google 离线翻译（云端暂不可用，专业术语可能有误）" else "Google 离线翻译"
                             val translator = Translation.getClient(TranslatorOptions.Builder()
                                 .setSourceLanguage(source).setTargetLanguage(TranslateLanguage.CHINESE).build())

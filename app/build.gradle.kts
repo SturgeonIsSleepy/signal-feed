@@ -12,9 +12,8 @@ android {
         applicationId = "cc.ccwu.signalfeed"
         minSdk = 26
         targetSdk = 36
-        versionCode = 7
-        versionName = "0.7.0"
-        buildConfigField("String", "API_BASE_URL", "\"${providers.gradleProperty("apiBaseUrl").orElse("https://example.invalid/").get()}\"")
+        versionCode = 9
+        versionName = "0.9.0"
         buildConfigField("String", "FCM_APP_ID", "\"${providers.gradleProperty("fcmAppId").orElse("").get()}\"")
         buildConfigField("String", "FCM_API_KEY", "\"${providers.gradleProperty("fcmApiKey").orElse("").get()}\"")
         buildConfigField("String", "FCM_PROJECT_ID", "\"${providers.gradleProperty("fcmProjectId").orElse("").get()}\"")

@@ -11,8 +11,8 @@ import java.util.concurrent.TimeUnit
 
 internal object CloudTranslation {
     private val client = OkHttpClient.Builder().callTimeout(180, TimeUnit.SECONDS).readTimeout(180, TimeUnit.SECONDS).build()
-    suspend fun translate(postId: String, hash: String): String = withContext(Dispatchers.IO) {
-        val url = (BuildConfig.API_BASE_URL + "v1/translate").toHttpUrl().newBuilder()
+    suspend fun translate(baseUrl: String, postId: String, hash: String): String = withContext(Dispatchers.IO) {
+        val url = (baseUrl.trimEnd('/') + "/v1/translate").toHttpUrl().newBuilder()
             .addQueryParameter("postId", postId).addQueryParameter("sourceHash", hash).build()
         client.newCall(Request.Builder().url(url).post(ByteArray(0).toRequestBody()).build()).execute().use { response ->
             check(response.isSuccessful) { "Cloud translation ${response.code}" }

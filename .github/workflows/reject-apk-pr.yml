@@ -1,0 +1,27 @@
+name: Reject APK changes from branches
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  reject-apk:
+    name: Reject APK files
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Reject APK changes
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          apk_files="$(git diff --name-only "$BASE_SHA...$HEAD_SHA" | grep -Ei '\.apk$' || true)"
+          if [ -n "$apk_files" ]; then
+            printf 'APK files are not allowed in branch pull requests:\n%s\n' "$apk_files"
+            exit 1
+          fi

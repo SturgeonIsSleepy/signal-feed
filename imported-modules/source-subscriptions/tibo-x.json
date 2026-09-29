@@ -1,0 +1,10 @@
+{
+  "subscriptions": [
+    {
+      "name": "Tibo (@thsottiaux) · X 公开 RSS 镜像",
+      "url": "https://x.noodl3.net/thsottiaux/rss",
+      "topic": "AI",
+      "enabled": true
+    }
+  ]
+}

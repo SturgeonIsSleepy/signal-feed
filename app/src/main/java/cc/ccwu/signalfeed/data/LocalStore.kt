@@ -66,6 +66,9 @@ interface FeedDao {
     @Query("SELECT * FROM snapshots WHERE id = :id") fun snapshot(id: String): Flow<SnapshotEntity?>
     @Query("SELECT * FROM accounts WHERE id = :id") suspend fun account(id: String): AccountEntity?
     @Query("SELECT * FROM posts WHERE breaking = 1 ORDER BY publishedAt DESC LIMIT 20") suspend fun breakingPosts(): List<PostEntity>
+    @Query("SELECT * FROM posts WHERE publishedAt > :since ORDER BY publishedAt DESC LIMIT 100") suspend fun recentPosts(since: Long): List<PostEntity>
+    @Query("SELECT * FROM posts WHERE id = :id") suspend fun post(id: String): PostEntity?
+    @Query("SELECT topicId FROM post_topics WHERE postId = :postId") suspend fun postTopicIds(postId: String): List<String>
     @Query("DELETE FROM post_sources WHERE postId LIKE 'demo-%'") suspend fun deleteDemoSources()
     @Query("DELETE FROM sources WHERE id LIKE 'demo-%'") suspend fun deleteDemoSourceRows()
     @Query("DELETE FROM post_topics WHERE postId LIKE 'demo-%'") suspend fun deleteDemoTopics()

@@ -35,11 +35,11 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-private val Ink = Color(0xFF0F1419)
+private val Ink: Color @Composable get() = LocalShellColors.current.text
 private val Soft = Color(0xFF536471)
 private val Line = Color(0xFFEFF3F4)
-private val Blue = Color(0xFF1D9BF0)
-private val Topics = listOf("全部", "F1", "AI", "玩机", "国内", "全球")
+private val Blue: Color @Composable get() = LocalShellColors.current.accent
+private val LocalTopics = staticCompositionLocalOf { listOf("全部") }
 
 @Composable
 fun SignalFeedApp(model: FeedViewModel) {
@@ -58,6 +58,11 @@ fun SignalFeedApp(model: FeedViewModel) {
     var detail by remember { mutableStateOf<FeedEntry?>(null) }
     var documentUrl by remember { mutableStateOf<String?>(null) }
     val context = LocalContext.current
+    val shell = remember { ShellPacks.get(context) }
+    val configuredFilters by shell.filterPacks.collectAsState()
+    val configuredBreaking by shell.breakingPacks.collectAsState()
+    val configuredTheme by shell.theme.collectAsState()
+    val themeColors = remember(configuredTheme.toString()) { colors(configuredTheme) }
     val moduleHome = remember(context) { (context as? android.app.Activity)?.let { RuntimeModules.home(it) } }
     val preferences = remember { context.getSharedPreferences("reading", Context.MODE_PRIVATE) }
     val modStore = remember { ModStore(context) }
@@ -72,12 +77,11 @@ fun SignalFeedApp(model: FeedViewModel) {
             page = 0; timeline = Timeline.FOR_YOU; topic = "全部"; accountFilter = null; onlyBreaking = false; detail = null; documentUrl = null
         }
     }
-    val items = remember(feed, timeline, topic, now, topicRows, featureSettings, accountFilter, onlyBreaking, modStore.packs) {
-        visibleFeed(feed, timeline, topic.takeUnless { it == "全部" }, now, topicRows.associate { it.id to it.weight }).filter {
+    val items = remember(feed, timeline, topic, now, topicRows, featureSettings, accountFilter, onlyBreaking, modStore.packs, configuredFilters, configuredBreaking) {
+        val marked = feed.map { item -> item.copy(post = item.post.copy(breaking = ImportedRules.breaking(configuredBreaking, item.post.body, item.account.id, item.topicIds, item.post.importance))) }
+        visibleFeed(marked, timeline, topic.takeUnless { it == "全部" }, now, topicRows.associate { it.id to it.weight }).filter {
             (featureSettings.enabled(Feature.SUBSCRIPTIONS) || !it.account.id.startsWith("sub:")) &&
-            (featureSettings.enabled(Feature.NEW_SOURCES) || it.account.id !in newMediaAccounts) &&
-            (!featureSettings.enabled(Feature.LOW_INFORMATION) || !LowInformationFilter.shouldHide(it.post.body, it.account.id, it.post.originalUrl)) &&
-            (!featureSettings.enabled(Feature.EDITORIAL_FILTER) || !LowInformationFilter.isEditorialOrTitleOnly(it.post.body, it.account.id)) &&
+            !ImportedRules.hide(configuredFilters, it.post.body, it.account.id, it.topicIds) &&
             (!featureSettings.enabled(Feature.MODS) || !modStore.hides(it.post.body, it.account.id)) &&
             (accountFilter == null || it.account.id == accountFilter) && (!onlyBreaking || it.post.breaking)
         }
@@ -103,9 +107,9 @@ fun SignalFeedApp(model: FeedViewModel) {
         breaking = { onlyBreaking = true; accountFilter = null; detail = null; page = 0; scope.launch { homeListState.scrollToItem(0) } },
         settings = { page = 2 }
     )
-    CompositionLocalProvider(LocalFeatures provides featureSettings, LocalFeedActions provides actions, LocalMods provides modStore) {
-    MaterialTheme(colorScheme = lightColorScheme(primary = Blue, background = Color.White, surface = Color.White)) {
-        Column(Modifier.fillMaxSize().background(Color.White).windowInsetsPadding(WindowInsets.safeDrawing)) {
+    CompositionLocalProvider(LocalFeatures provides featureSettings, LocalFeedActions provides actions, LocalMods provides modStore, LocalShellColors provides themeColors, LocalTopics provides (listOf("全部") + topicRows.map { it.id })) {
+    MaterialTheme(colorScheme = lightColorScheme(primary = Blue, onSurface = Ink, background = themeColors.background, surface = themeColors.surface)) {
+        Column(Modifier.fillMaxSize().background(themeColors.background).windowInsetsPadding(WindowInsets.safeDrawing)) {
             Box(Modifier.weight(1f)) {
                 if (documentUrl != null) PdfDocumentPage(documentUrl!!, onBack = { documentUrl = null },
                     onOriginal = { openOriginal(context, documentUrl!!) })
@@ -129,7 +133,7 @@ fun SignalFeedApp(model: FeedViewModel) {
                         onMute = { model.mute(it.account, true) })
                     }
                     1 -> dataStateHolder.SaveableStateProvider("data") {
-                        DataPage(f1, ai, model.f1Message.value, model.aiMessage.value, now,
+                        ImportedDataPage(f1, ai, model.f1Message.value, model.aiMessage.value, now,
                             onF1Refresh = { model.loadF1() }, onAiRefresh = { model.loadAi() })
                     }
                     else -> AccountsPage(accounts, topicRows, model, directX, { directX = it; preferences.edit().putBoolean("direct_x", it).apply() }, featureSettings) { feature, value ->
@@ -191,7 +195,7 @@ private fun FeedPage(
         HorizontalDivider(color = Line)
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 10.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Topics.forEach { label ->
+            LocalTopics.current.forEach { label ->
                 val selected = label == topic
                 Box(Modifier.background(if (selected) Ink else Color(0xFFF7F9F9), RoundedCornerShape(18.dp))
                     .clickable { onTopic(label) }.padding(horizontal = 15.dp, vertical = 7.dp)) {
@@ -208,10 +212,10 @@ private fun FeedPage(
         }
         if (entries.isEmpty()) Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(if (syncing) "正在获取消息…" else "暂时没有消息", color = Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                Text(if (timeline == Timeline.FOLLOWING) "关注账号后，这里会按时间显示动态" else "试试其他主题，或稍后刷新", color = Soft,
+                Text(if (syncing) "正在获取消息…" else "还没有消息", color = Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                Text(if (timeline == Timeline.FOLLOWING) "关注账号后，这里会按时间显示动态" else "在设置中导入信息源订阅文件", color = Soft,
                     fontSize = 13.sp, modifier = Modifier.padding(top = 8.dp))
-                TextButton(onClick = onRefresh, enabled = !syncing) { Text("刷新消息") }
+                TextButton(onClick = { actions.settings() }) { Text("添加信息源") }
             }
         } else LazyColumn(state = listState) {
             items(entries, key = { it.key }) { entry ->
@@ -266,7 +270,7 @@ private fun PostRow(item: FeedPost, onClick: () -> Unit, onFollow: () -> Unit, o
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                 if (item.post.breaking) SmallBadge("BREAKING", Color(0xFFFFE8E8), Color(0xFFB42318))
                 item.topicIds.firstOrNull()?.let { SmallBadge(it, Color(0xFFE8F5FD), Blue) }
-                SmallBadge(if (item.account.id in newMediaAccounts) "单一来源" else confidenceLabel(item.post.confidence), Color(0xFFF1F3F5), Soft)
+                SmallBadge(confidenceLabel(item.post.confidence), Color(0xFFF1F3F5), Soft)
             }
             Spacer(Modifier.height(9.dp))
             Text("阅读详情  →  ·  ${item.sourceLinks.size} 个来源", color = Blue, fontSize = 12.sp,
@@ -375,13 +379,13 @@ private fun DetailPost(item: FeedPost, onDocument: (String) -> Unit) {
                 openOriginal(context, "https://s.weibo.com/weibo?q=" + Uri.encode("#$tag#"))
             } }
         }
-        if (LocalFeatures.current.enabled(Feature.TRANSLATION)) TranslatableBody(readable.body, item.post.id, hasTitle = item.account.id != "wuxing")
+        if (ShellPacks.get(context).translatorPacks.collectAsState().value.isNotEmpty() && LocalFeatures.current.enabled(Feature.TRANSLATION)) TranslatableBody(readable.body, item.post.id, hasTitle = item.account.id != "wuxing")
         else SelectionContainer { Text(readable.body, color = Ink, fontSize = 16.sp, lineHeight = 27.sp) }
         Spacer(Modifier.height(14.dp))
         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             if (item.post.breaking) SmallBadge("BREAKING", Color(0xFFFFE8E8), Color(0xFFB42318))
             item.topicIds.firstOrNull()?.let { SmallBadge(it, Color(0xFFE8F5FD), Blue) }
-            SmallBadge(if (item.account.id in newMediaAccounts) "单一来源" else confidenceLabel(item.post.confidence), Color(0xFFF1F3F5), Soft)
+            SmallBadge(confidenceLabel(item.post.confidence), Color(0xFFF1F3F5), Soft)
         }
         Spacer(Modifier.height(18.dp))
         HorizontalDivider(color = Line)
@@ -403,12 +407,13 @@ private fun DetailPost(item: FeedPost, onDocument: (String) -> Unit) {
 
 @Composable private fun SmallBadge(text: String, background: Color, foreground: Color, onClick: (() -> Unit)? = null) {
     val actions = LocalFeedActions.current
+    val topics = LocalTopics.current
     val interactive = LocalFeatures.current.enabled(Feature.LABEL_ACTIONS)
     var explain by remember { mutableStateOf(false) }
     Text(text, Modifier.background(background, RoundedCornerShape(4.dp)).clickable(enabled = interactive) {
         when {
             onClick != null -> onClick()
-            text in Topics -> actions.topic(text)
+            text in topics -> actions.topic(text)
             text.contains("BREAKING", ignoreCase = true) -> actions.breaking()
             else -> explain = true
         }
@@ -455,7 +460,7 @@ private fun confidenceLabel(value: String): String = when (value) {
                         }
                         Switch(directX, onDirectX)
                     }
-                    Text("其他网页使用系统默认浏览器打开。详情可翻译为中文，优先使用云端免费额度；不可用时使用设备端翻译，首次需下载语言包。", fontSize = 12.sp, color = Soft)
+                    Text("其他网页使用系统默认浏览器打开。翻译器需要在新版设置中导入。", fontSize = 12.sp, color = Soft)
                 }
             }
             item { Subheading("功能与回退") }
@@ -468,7 +473,7 @@ private fun confidenceLabel(value: String): String = when (value) {
                     Switch(features.enabled(feature), { onFeature(feature, it) })
                 }
             }
-            item { Text("0.4 更新：修正 X 原文打开方式，新增媒体、标签操作与去除废话。各项可分别关闭，缓存保留。", Modifier.padding(18.dp), color = Soft, fontSize = 12.sp) }
+            item { Text("此页用于回退旧版交互。要管理导入文件，请重新启用分类设置页。", Modifier.padding(18.dp), color = Soft, fontSize = 12.sp) }
             item { Subheading("主题权重") }
             items(topics, key = { "topic-${it.id}" }) { topic ->
                 Column(Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 8.dp)) {

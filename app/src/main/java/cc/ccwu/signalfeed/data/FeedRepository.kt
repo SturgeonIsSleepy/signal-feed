@@ -1,7 +1,7 @@
 package cc.ccwu.signalfeed.data
 
 import android.content.Context
-import cc.ccwu.signalfeed.BuildConfig
+import cc.ccwu.signalfeed.ShellPacks
 import cc.ccwu.signalfeed.Subscriptions
 import cc.ccwu.signalfeed.RuntimeModules
 import com.squareup.moshi.JsonClass
@@ -64,13 +64,14 @@ data class AiSnapshot(val models: List<AiModel>, val indexVersion: Double?, val 
 
 class FeedRepository(context: Context) {
     private val subscriptions = Subscriptions.get(context)
+    private val shell = ShellPacks.get(context)
+    private val cursors = context.getSharedPreferences("source-cursors", Context.MODE_PRIVATE)
     private val dao = FeedDatabase.get(context).feedDao()
     private val moshi = Moshi.Builder().add(com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory()).build()
-    private val api: FeedApi? = if (BuildConfig.API_BASE_URL.contains("example.invalid")) null else {
-        Retrofit.Builder().baseUrl(BuildConfig.API_BASE_URL)
+    private fun api(address: String): FeedApi =
+        Retrofit.Builder().baseUrl(address)
             .client(OkHttpClient.Builder().addInterceptor { chain -> chain.proceed(chain.request().newBuilder().url(RuntimeModules.url(chain.request().url.toString())).build()) }.build())
             .addConverterFactory(MoshiConverterFactory.create(moshi)).build().create(FeedApi::class.java)
-    }
 
     val accounts: Flow<List<AccountEntity>> = dao.accounts()
     val topics: Flow<List<TopicEntity>> = dao.topics()
@@ -88,9 +89,6 @@ class FeedRepository(context: Context) {
         val linksByPost = links.groupBy { it.postId }
         val topicsByPost = topics.groupBy { it.postId }
         posts.mapNotNull { post ->
-            // Older adapter versions incorrectly matched non-F1 sprint races; hide that cached noise.
-            if (post.accountId == "wuxing" && (!Regex("\\bF1\\b|一级方程式|Formula\\s*(?:1|One)", RegexOption.IGNORE_CASE).containsMatchIn(post.body)
-                || Regex("赛艇|摩托艇").containsMatchIn(post.body))) return@mapNotNull null
             val account = accountById[post.accountId] ?: return@mapNotNull null
             FeedPost(post, account,
                 linksByPost[post.id].orEmpty().mapNotNull { link ->
@@ -101,53 +99,84 @@ class FeedRepository(context: Context) {
     }
 
     private val feedAdapter = moshi.adapter<List<FeedPost>>(com.squareup.moshi.Types.newParameterizedType(List::class.java, FeedPost::class.java))
-    val feed: Flow<List<FeedPost>> = combine(rawFeed, subscriptions.items) { rows, sources ->
+    val feed: Flow<List<FeedPost>> = combine(rawFeed, subscriptions.items, shell.sourcePacks) { rows, sources, packs ->
         val enabled = sources.filter { it.enabled }.map { it.id }.toSet()
-        val visible = rows.filter { !it.account.id.startsWith("sub:") || it.account.id in enabled }
+        val selected = packs.flatMap { pack -> pack.optJSONArray("accounts")?.let { array -> (0 until array.length()).map { array.getString(it) } }.orEmpty() }.toSet()
+        val visible = rows.filter { if (it.account.id.startsWith("sub:")) it.account.id in enabled else it.account.id in selected }
         runCatching { feedAdapter.fromJson(RuntimeModules.transform(feedAdapter.toJson(visible))) ?: visible }.getOrDefault(visible)
     }
 
     suspend fun initialize() {
-        if (api == null && dao.postCount() == 0) DemoData.seed(dao)
-        dao.insertTopics(listOf("F1", "AI", "玩机", "国内", "全球").map { TopicEntity(it, it) })
-        if (api != null) {
-            dao.deleteDemoSources(); dao.deleteDemoSourceRows(); dao.deleteDemoTopics(); dao.deleteDemoPosts()
-        }
+        dao.deleteDemoSources(); dao.deleteDemoSourceRows(); dao.deleteDemoTopics(); dao.deleteDemoPosts()
     }
 
     suspend fun refresh(): Boolean {
         subscriptions.refresh()
-        val remote = api ?: return false
-        var cursor = dao.cursor().orEmpty()
+        val grouped = shell.sourcePacks.value.groupBy { it.getString("apiBaseUrl") }
+        var changed = false
+        var failed = false
+        grouped.forEach { (address, packs) ->
+            val selected = packs.flatMap { pack -> val array = pack.getJSONArray("accounts"); (0 until array.length()).map { array.getString(it) } }.toSet()
+            try { changed = syncSource(address, selected) || changed } catch (_: Exception) { failed = true }
+        }
+        if (failed) error("部分聚合服务更新失败")
+        return changed
+    }
+
+    private suspend fun syncSource(address: String, selected: Set<String>): Boolean {
+        val remote = api(address)
+        var cursor = cursors.getString(address, "").orEmpty()
         var changed = false
         repeat(10) {
             val page = remote.sync(cursor.ifEmpty { null })
+            val posts = page.posts.filter { it.accountId in selected }
+            posts.forEach { post ->
+                require(dao.post(post.id)?.accountId?.let { it == post.accountId } ?: true) { "聚合服务帖子标识冲突" }
+            }
             val known = knownAccountIds()
-            dao.upsertAccounts(page.accounts.map { fresh ->
+            dao.upsertAccounts(page.accounts.filter { it.id in selected }.map { fresh ->
                 // Existing local preferences are preserved by the update query below; never replace them on sync.
                 AccountEntity(fresh.id, fresh.name, fresh.handle)
             }.filter { item -> item.id !in known })
-            dao.upsertSources(page.sources.map { SourceEntity(it.id, it.accountId, it.name, it.homeUrl, it.status) })
-            dao.upsertPosts(page.posts.map { PostEntity(it.id, it.accountId, it.body, it.publishedAt,
+            dao.upsertSources(page.sources.filter { it.accountId in selected }.map { SourceEntity(it.id, it.accountId, it.name, it.homeUrl, it.status) })
+            dao.insertTopics(posts.flatMap { it.topicIds }.distinct().map { TopicEntity(it, it) })
+            dao.upsertPosts(posts.map { PostEntity(it.id, it.accountId, it.body, it.publishedAt,
                 it.updatedAt, it.importance, it.confidence, it.breaking, it.originalUrl) })
-            dao.upsertPostSources(page.posts.flatMap { post -> post.sources.map {
+            dao.upsertPostSources(posts.flatMap { post -> post.sources.map {
                 PostSourceEntity(post.id, it.sourceId, it.originalUrl)
             } })
-            dao.upsertPostTopics(page.posts.flatMap { post -> post.topicIds.map { PostTopicEntity(post.id, it) } })
-            changed = changed || page.posts.isNotEmpty()
-            if (page.nextCursor == cursor || page.posts.isEmpty()) return changed
-            cursor = page.nextCursor
-            dao.upsertCursor(SyncStateEntity(cursor = cursor))
+            dao.upsertPostTopics(posts.flatMap { post -> post.topicIds.map { PostTopicEntity(post.id, it) } })
+            changed = changed || posts.isNotEmpty()
+            val previous = cursor
+            if (page.nextCursor != cursor) {
+                cursor = page.nextCursor
+                cursors.edit().putString(address, cursor).apply()
+            }
+            if (page.nextCursor == previous || page.posts.isEmpty()) return changed
         }
         return changed
     }
 
     suspend fun refreshF1() {
-        val value = api?.f1() ?: return
+        val addresses = shell.sourcePacks.value.map { it.getString("apiBaseUrl") }.distinct()
+        if (addresses.isEmpty()) return
+        var value: F1Snapshot? = null
+        for (address in addresses) {
+            value = runCatching { api(address).f1() }.getOrNull()
+            if (value != null) break
+        }
+        checkNotNull(value) { "没有可用的 F1 数据服务" }
         dao.upsertSnapshot(SnapshotEntity("f1", moshi.adapter(F1Snapshot::class.java).toJson(value), value.updatedAt))
     }
     suspend fun refreshAi() {
-        val value = api?.ai() ?: return
+        val addresses = shell.sourcePacks.value.map { it.getString("apiBaseUrl") }.distinct()
+        if (addresses.isEmpty()) return
+        var value: AiSnapshot? = null
+        for (address in addresses) {
+            value = runCatching { api(address).ai() }.getOrNull()
+            if (value != null) break
+        }
+        checkNotNull(value) { "没有可用的 AI 数据服务" }
         dao.upsertSnapshot(SnapshotEntity("ai", moshi.adapter(AiSnapshot::class.java).toJson(value), value.updatedAt))
     }
 
