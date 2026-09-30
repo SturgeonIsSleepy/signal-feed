@@ -1,0 +1,19 @@
+{
+  "formatVersion": 1,
+  "type": "subscription-pack",
+  "name": "SignalFeed 信息源与数据栏目",
+  "sources": [
+    {
+      "formatVersion": 1,
+      "id": "personal-signalfeed",
+      "name": "SignalFeed 聚合服务",
+      "apiBaseUrl": "https://signal-feed.zhx100560.workers.dev/",
+      "accounts": ["jiangnan", "wuxing", "f1", "fia", "openai", "radar", "cn", "global", "media-chinanews", "media-france24", "media-aljazeera", "media-un"]
+    }
+  ],
+  "panels": [
+    { "formatVersion": 1, "id": "f1-calendar", "name": "F1 赛历", "kind": "f1-calendar" },
+    { "formatVersion": 1, "id": "f1-points", "name": "F1 积分", "kind": "f1-points" },
+    { "formatVersion": 1, "id": "ai-models", "name": "模型榜", "kind": "ai-models" }
+  ]
+}

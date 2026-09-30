@@ -99,12 +99,12 @@ internal fun PdfDocumentPage(url: String, onBack: () -> Unit, onOriginal: () -> 
         }
         onDispose { job.cancel() }
     }
-    Column(Modifier.fillMaxSize().background(Color(0xFFF2F4F6))) {
+    Column(Modifier.fillMaxSize().background(LocalShellColors.current.muted)) {
         Row(Modifier.fillMaxWidth().background(Color.White), verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onBack) { Icon(FeedIcons.Back, "返回消息详情") }
-            Text("原始文件", Modifier.weight(1f))
-            TextButton(onClick = { zoom = (zoom - 0.5f).coerceAtLeast(1f) }, enabled = zoom > 1f) { Text("−") }
-            TextButton(onClick = { zoom = (zoom + 0.5f).coerceAtMost(3f) }, enabled = zoom < 3f) { Text("放大") }
+            UiText("原始文件", Modifier.weight(1f))
+            TextButton(onClick = { zoom = (zoom - 0.5f).coerceAtLeast(1f) }, enabled = zoom > 1f) { UiText("−") }
+            TextButton(onClick = { zoom = (zoom + 0.5f).coerceAtMost(3f) }, enabled = zoom < 3f) { UiText("放大") }
         }
         val loaded = document
         if (loaded != null) {
@@ -121,12 +121,12 @@ internal fun PdfDocumentPage(url: String, onBack: () -> Unit, onOriginal: () -> 
                                 catch (_: Exception) { renderFailed = true }
                             }
                             Column {
-                                Text("第 ${index + 1} / ${loaded.pages} 页", style = MaterialTheme.typography.labelMedium,
+                                UiText("第 ${index + 1} / ${loaded.pages} 页", style = MaterialTheme.typography.labelMedium,
                                     modifier = Modifier.padding(bottom = 6.dp))
                                 bitmap?.let { Image(it.asImageBitmap(), "文档第 ${index + 1} 页", Modifier.fillMaxWidth()
                                     .aspectRatio(it.width.toFloat() / it.height)) }
                                     ?: Box(Modifier.fillMaxWidth().height(300.dp), contentAlignment = Alignment.Center) {
-                                        if (renderFailed) TextButton(onClick = onOriginal) { Text("此页无法显示，打开原文") }
+                                        if (renderFailed) TextButton(onClick = onOriginal) { UiText("此页无法显示，打开原文") }
                                         else CircularProgressIndicator()
                                     }
                             }
@@ -136,9 +136,9 @@ internal fun PdfDocumentPage(url: String, onBack: () -> Unit, onOriginal: () -> 
             }
         } else Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             if (failed) Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text("文档暂时无法加载，请检查网络后重试")
-                TextButton(onClick = { retry++ }) { Text("重新加载") }
-                TextButton(onClick = onOriginal) { Text("打开原文") }
+                UiText("文档暂时无法加载，请检查网络后重试")
+                TextButton(onClick = { retry++ }) { UiText("重新加载") }
+                TextButton(onClick = onOriginal) { UiText("打开原文") }
             } else CircularProgressIndicator()
         }
     }

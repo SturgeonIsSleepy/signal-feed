@@ -23,21 +23,21 @@ import kotlinx.coroutines.withContext
     val packages = remember(revision) { store.packages() }
     var message by remember { mutableStateOf("") }
     Column(Modifier.padding(18.dp)) {
-        Text("手机模块", fontWeight = FontWeight.Bold)
-        Text("导入预编译 DEX 的 ZIP 模块，可扩展页面、信息流、网络和应用逻辑。安装、停用、卸载后退出并重新打开生效，无需电脑重新打包 App。")
-        RuntimeModules.notice?.let { Text(it) }
-        Text("安装入口位于设置首页的「导入文件」。", style = MaterialTheme.typography.bodySmall)
+        UiText("手机模块", fontWeight = FontWeight.Bold)
+        UiText("导入预编译 DEX 的 ZIP 模块，可扩展页面、信息流、网络和应用逻辑。安装、停用、卸载后退出并重新打开生效，无需电脑重新打包 App。")
+        RuntimeModules.notice?.let { UiText(it) }
+        UiText("安装入口位于设置首页的「导入文件」。", style = MaterialTheme.typography.bodySmall)
         packages.forEach { pack ->
             Row {
-                Column(Modifier.weight(1f)) { Text(pack.getString("name")); Text("版本 ${pack.getString("version")}") }
+                Column(Modifier.weight(1f)) { UiText(pack.getString("name")); UiText("版本 ${pack.getString("version")}") }
                 Switch(pack.getBoolean("enabled"), { store.enable(pack.getString("directory"), it); revision++; message = "已保存，退出后重新打开生效" })
             }
-            TextButton(onClick = { store.remove(pack.getString("directory")); revision++; message = "模块文件已移除，退出后清除内存中的模块代码" }) { Text("卸载模块") }
+            TextButton(onClick = { store.remove(pack.getString("directory")); revision++; message = "模块文件已移除，退出后清除内存中的模块代码" }) { UiText("卸载模块") }
         }
-        if (packages.isEmpty()) Text("尚未安装手机模块")
-        if (message.isNotBlank()) Text(message, color = MaterialTheme.colorScheme.primary)
-        TextButton(onClick = { (context as? Activity)?.finishAffinity(); android.os.Process.killProcess(android.os.Process.myPid()) }) { Text("退出应用，重新打开使变更生效") }
-        Text("无法正常启动时，使用桌面的 SignalFeed 恢复入口。旧源码补丁仍需电脑构建，手机模块不能替换系统权限声明。", style = MaterialTheme.typography.bodySmall)
+        if (packages.isEmpty()) UiText("尚未安装手机模块")
+        if (message.isNotBlank()) UiText(message, color = MaterialTheme.colorScheme.primary)
+        TextButton(onClick = { (context as? Activity)?.finishAffinity(); android.os.Process.killProcess(android.os.Process.myPid()) }) { UiText("退出应用，重新打开使变更生效") }
+        UiText("无法正常启动时，使用桌面的 SignalFeed 恢复入口。旧源码补丁仍需电脑构建，手机模块不能替换系统权限声明。", style = MaterialTheme.typography.bodySmall)
     }
 }
 
@@ -57,21 +57,21 @@ import kotlinx.coroutines.withContext
     }
     LazyColumn {
         item { Column(Modifier.padding(18.dp)) {
-            Text("信息源订阅", fontWeight = FontWeight.Bold)
-            Text("RSS / Atom 订阅可通过设置首页导入 JSON 或 OPML。重复地址自动合并，停用或删除后隐藏缓存内容。")
-            Row { TextButton(onClick = { exporter.launch("signalfeed-subscriptions.json") }) { Text("导出") }; TextButton(onClick = { model.refresh() }) { Text("刷新订阅") } }
-            Text(message)
-            if (subscriptions.isEmpty()) Text("尚未添加文件订阅")
+            UiText("信息源订阅", fontWeight = FontWeight.Bold)
+            UiText("RSS / Atom 订阅可通过设置首页导入 JSON 或 OPML。重复地址自动合并，停用或删除后隐藏缓存内容。")
+            Row { TextButton(onClick = { exporter.launch("signalfeed-subscriptions.json") }) { UiText("导出") }; TextButton(onClick = { model.refresh() }) { UiText("刷新订阅") } }
+            UiText(message)
+            if (subscriptions.isEmpty()) UiText("尚未添加文件订阅")
         } }
-        item { if (backend != null) Text("聚合服务账号", Modifier.padding(18.dp), fontWeight = FontWeight.Bold) }
+        item { if (backend != null) UiText("聚合服务账号", Modifier.padding(18.dp), fontWeight = FontWeight.Bold) }
         items(accounts.filter { backend != null && it.id in selectedAccounts }, key = { "backend:" + it.id }) { account ->
-            Row(Modifier.padding(horizontal = 18.dp)) { Text(account.name, Modifier.weight(1f)); Switch(!account.muted, { model.mute(account, !it) }) }
+            Row(Modifier.padding(horizontal = 18.dp)) { UiText(account.name, Modifier.weight(1f)); Switch(!account.muted, { model.mute(account, !it) }) }
         }
-        item { Text("文件订阅", Modifier.padding(18.dp), fontWeight = FontWeight.Bold) }
+        item { UiText("文件订阅", Modifier.padding(18.dp), fontWeight = FontWeight.Bold) }
         items(subscriptions, key = { it.id }) { sub -> Column(Modifier.padding(18.dp)) {
-            Row { Text(sub.name, Modifier.weight(1f), fontWeight = FontWeight.SemiBold); Switch(sub.enabled, { on -> store.save(subscriptions.map { if (it.id == sub.id) it.copy(enabled = on) else it }); Notifications.configure(context) }) }
-            Text("${sub.topic}\n${sub.url}", style = MaterialTheme.typography.bodySmall)
-            TextButton(onClick = { store.save(subscriptions.filterNot { it.id == sub.id }); Notifications.configure(context) }) { Text("删除订阅") }
+            Row { UiText(sub.name, Modifier.weight(1f), fontWeight = FontWeight.SemiBold); Switch(sub.enabled, { on -> store.save(subscriptions.map { if (it.id == sub.id) it.copy(enabled = on) else it }); Notifications.configure(context) }) }
+            UiText("${sub.topic}\n${sub.url}", style = MaterialTheme.typography.bodySmall)
+            TextButton(onClick = { store.save(subscriptions.filterNot { it.id == sub.id }); Notifications.configure(context) }) { UiText("删除订阅") }
             HorizontalDivider()
         } }
     }

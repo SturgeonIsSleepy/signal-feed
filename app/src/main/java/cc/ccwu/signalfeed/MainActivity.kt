@@ -32,7 +32,7 @@ class MainActivity : ComponentActivity() {
         model = ViewModelProvider(this)[FeedViewModel::class.java]
         model.targetPostId.value = intent.getStringExtra("postId")
         Notifications.configure(this)
-        if (Build.VERSION.SDK_INT >= 33 && ShellPacks.get(this).breakingPacks.value.isNotEmpty() &&
+        if (Build.VERSION.SDK_INT >= 33 && ShellPacks.get(this).breakingRules().isNotEmpty() &&
             ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1)
         }

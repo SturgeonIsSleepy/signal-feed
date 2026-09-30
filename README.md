@@ -5,10 +5,12 @@
 ## 功能
 
 - X 风格首页：For You、Following、主题筛选、账号关注/屏蔽与来源详情
+- 中英文界面与主题包附加语言，设备端自动翻译及原文切换
+- 浅色、深色和跟随系统；滚动收起顶栏与背景模糊
 - F1 赛历、积分与赛果；车手和车队逐站积分图
 - AI 模型榜：柱状比较、多维评分、雷达图和均值对照
 - RSS/Atom 文件订阅，JSON 与 OPML 导入、JSON 导出
-- Mod：规则包、手机端运行时 DEX 模块，以及从干净基线重建 APK 的源码包
+- 四类统一导入：主题包、订阅、内容筛选、手机端运行时 DEX Mod
 - Room 离线缓存、内容过滤、逐项行为回退
 - Cloudflare Worker 同步、D1 去重、F1/AI 数据和 Breaking 通知
 
@@ -43,6 +45,7 @@ Worker 开发命令：在 `worker/` 安装依赖后运行 `npm test`、`npm run 
 ## 文档
 
 - [项目设置规范](project-specs/PROJECT_SETUP.md)
+- [导入说明合集与可修改示例](project-specs/import-formats/README.md)
 - [APK 工作流与分支边界](project-specs/APK_WORKFLOW.md)
 - [Mod 格式总规范](project-specs/CODE_MOD_SPEC.md)
 - [手机运行时 DEX 模块 API 1](project-specs/MOBILE_MOD_SPEC.md)

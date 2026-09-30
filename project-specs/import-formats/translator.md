@@ -1,40 +1,11 @@
-# 翻译器配置
+# 内置翻译设置
 
-## 给 AI 的生成要求
+当前版本不再导入独立翻译器 JSON，统一入口会提示前往「设置 → 语言与外观」。旧示例 `translator-device.json`、`translator-worker.json` 仅供历史版本参考，不适用于当前导入入口。
 
-请根据我选择的翻译方式生成 SignalFeed 翻译器 JSON。设备端翻译只需本地模式。云端模式必须使用我提供的 HTTPS 服务地址；不要猜接口，不要在文件里放 API Key、密码或令牌。文件扩展名为 `.json`。
+- 选择应用语言：内置中文、English，附加语言放在 [主题包](theme.md) 的 `languages`。
+- 自动翻译默认开启，关闭后首页和数据内容保留原文，界面语言不变。
+- 详情页可随时查看原文或手动翻译。
+- 设备端 ML Kit 首次使用需联网下载对应模型，之后可离线翻译，无需 API Key。
+- 同时限制翻译请求数量，按原文和目标语言缓存译文；下载失败或语言不支持时保留原文。
 
-## 设备端翻译
-
-```json
-{
-  "formatVersion": 1,
-  "id": "device-translator",
-  "name": "设备端翻译",
-  "mode": "device"
-}
-```
-
-设备端使用 Google ML Kit 下载语言模型并在本机翻译，首次使用需要网络下载支持的语言包。
-
-## 云端翻译
-
-```json
-{
-  "formatVersion": 1,
-  "id": "my-translation-service",
-  "name": "我的翻译服务",
-  "mode": "worker",
-  "url": "https://translate.example.org/",
-  "fallback": "device"
-}
-```
-
-- `formatVersion`：必填整数 `1`。
-- `id`：必填，1 至 64 位英文字母、数字、下划线或短横线。
-- `name`：必填，1 至 80 个字符。
-- `mode`：必填，`device` 或 `worker`。
-- `url`：`worker` 模式必填的 HTTPS 服务根地址。
-- `fallback`：可选，设为 `device` 时云端失败后尝试设备端翻译。
-
-当前客户端对云端服务执行 `POST {url}/v1/translate?postId=...&sourceHash=...`，期望响应 JSON 含相同的 `sourceHash` 和非空 `body`。服务端应只翻译已发布帖子的内容，并校验请求中的原文哈希。导入的第一个翻译器生效，建议只保留一个配置。
+正文、摘要、赛事标题及自定义栏目文字参与翻译，ID、地址、数值和原始 PDF 页面不变。机器翻译可能误译专有名词或术语。若要实现不同翻译引擎，需要制作 [手机 Mod](runtime-mod-zip.md)，不能把服务密钥写入导入文件。

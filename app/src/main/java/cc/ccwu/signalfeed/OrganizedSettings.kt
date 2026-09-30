@@ -25,34 +25,34 @@ import cc.ccwu.signalfeed.data.TopicEntity
     BackHandler(section.isNotEmpty()) { section = "" }
     Column {
         Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            if (section.isNotEmpty()) TextButton(onClick = { section = "" }) { Text("‹ 返回") }
-            Text(section.ifEmpty { "设置" }, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+            if (section.isNotEmpty()) TextButton(onClick = { section = "" }) { UiText("‹ 返回") }
+            UiText(section.ifEmpty { "设置" }, fontSize = 22.sp, fontWeight = FontWeight.Bold)
         }
         HorizontalDivider()
-        if (section == "信息源订阅") { SourceSetupPanel(model); return@Column }
-        if (section in listOf("筛选规则", "翻译器", "数据栏目", "Breaking 规则", "主题美化")) {
-            val kind = when(section) { "筛选规则" -> "filter"; "翻译器" -> "translator"; "数据栏目" -> "data"; "Breaking 规则" -> "breaking"; else -> "theme" }
-            PackPanel(kind) { if (kind == "breaking") Notifications.configure(context) }
-            return@Column
-        }
-        if (section == "Mod 管理") { ModManager(); return@Column }
+        if (section == "订阅") { SourceSetupPanel(model); return@Column }
+        if (section == "内容筛选") { ContentFilterPanel { Notifications.configure(context) }; return@Column }
+        if (section == "主题包") { PackPanel("theme"); return@Column }
+        if (section == "手机 Mod") { ModManager(); return@Column }
+        if (section == "语言与外观") { ReaderOptionsPanel(); return@Column }
         if (section.isEmpty()) ImportHub(model)
         LazyColumn {
             if (section.isEmpty()) {
-                val sections = listOf("信息源订阅" to "管理 RSS、OPML 和聚合服务", "筛选规则" to "查看和移除过滤规则", "翻译器" to "管理已安装的翻译器", "Breaking 规则" to "管理通知筛选条件", "数据栏目" to "管理赛历、榜单和自定义内容", "主题美化" to "管理配色主题", "Mod 管理" to "管理手机模块与 ZIP 规则包", "账号与关注" to "订阅后管理关注和屏蔽", "主题偏好" to "调整已订阅主题权重", "阅读与打开方式" to "原文和浏览器设置", "功能与回退" to "恢复之前的交互行为")
+                val sections = listOf("语言与外观" to "中英文、深色模式和阅读效果", "主题包" to "配色、深浅色和语言字典",
+                    "订阅" to "管理来源、账号与数据栏目", "内容筛选" to "屏蔽、保留和 Breaking 通知规则", "手机 Mod" to "直接在手机安装、停用与卸载",
+                    "账号与关注" to "订阅后管理关注和屏蔽", "主题偏好" to "调整已订阅主题权重", "阅读与打开方式" to "原文和浏览器设置", "功能与回退" to "恢复之前的交互行为")
                 items(sections) { (title, subtitle) ->
-                    ListItem(headlineContent = { Text(title, fontWeight = FontWeight.SemiBold) }, supportingContent = { Text(subtitle) }, trailingContent = { Text("›") }, modifier = Modifier.clickable { section = title })
+                    ListItem(headlineContent = { UiText(title, fontWeight = FontWeight.SemiBold) }, supportingContent = { UiText(subtitle) }, trailingContent = { UiText("›") }, modifier = Modifier.clickable { section = title })
                     HorizontalDivider(Modifier.padding(horizontal = 16.dp))
                 }
-                item { Text("SignalFeed 0.9\n所有文件从上方入口导入，可在对应栏目移除", Modifier.padding(20.dp), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp) }
+                item { UiText("SignalFeed\n导入内容与设置均保存在本机", Modifier.padding(20.dp), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp) }
             } else if (section == "账号与关注") {
                 items(accounts.filter { it.id.startsWith("sub:") || (backend != null && it.id in selectedAccounts) }, key = { it.id }) { account ->
                     Column(Modifier.padding(16.dp)) {
-                        Text(account.name, fontWeight = FontWeight.Bold)
-                        Text(account.handle, fontSize = 12.sp)
+                        UiText(account.name, fontWeight = FontWeight.Bold)
+                        UiText(account.handle, fontSize = 12.sp)
                         SettingsToggle("关注", "加入 Following", account.followed) { model.follow(account, it) }
                         SettingsToggle("屏蔽", "从信息流隐藏", account.muted) { model.mute(account, it) }
-                        Text("推荐权重 ${"%.2f".format(account.weight)}")
+                        UiText("推荐权重 ${"%.2f".format(account.weight)}")
                         Slider(account.weight.toFloat(), { model.weight(account, it.toDouble()) }, valueRange = .5f..2f, steps = 5)
                     }
                     HorizontalDivider()
@@ -60,7 +60,7 @@ import cc.ccwu.signalfeed.data.TopicEntity
             } else if (section == "主题偏好") {
                 items(topics, key = { it.id }) { topic ->
                     Column(Modifier.padding(18.dp)) {
-                        Text("${topic.name}  ${"%.2f".format(topic.weight)}", fontWeight = FontWeight.SemiBold)
+                        UiText("${topic.name}  ${"%.2f".format(topic.weight)}", fontWeight = FontWeight.SemiBold)
                         Slider(topic.weight.toFloat(), { model.topicWeight(topic, it.toDouble()) }, valueRange = .5f..2f, steps = 5)
                     }
                 }
@@ -70,7 +70,7 @@ import cc.ccwu.signalfeed.data.TopicEntity
                 }
                 val selected = when (section) {
                     "阅读与打开方式" -> listOf(Feature.CLEAN_TEXT, Feature.EXTERNAL_BROWSER)
-                    else -> Feature.entries.filterNot { it == Feature.TRANSLATION }
+                    else -> Feature.entries
                 }
                 items(selected, key = { it.key }) { feature -> SettingsToggle(feature.title, feature.description, features.enabled(feature)) { onFeature(feature, it) } }
             }
@@ -78,36 +78,59 @@ import cc.ccwu.signalfeed.data.TopicEntity
     }
 }
 
+@Composable internal fun ReaderOptionsPanel() {
+    val context = LocalContext.current
+    val store = remember { ReaderOptionsStore.get(context) }
+    val options by store.options.collectAsState()
+    val theme by ShellPacks.get(context).theme.collectAsState()
+    val languages = remember(theme.toString()) { availableLanguages(theme) }
+    LazyColumn(contentPadding = PaddingValues(bottom = 24.dp)) {
+        item {
+            UiText("应用语言", Modifier.padding(start = 18.dp, top = 18.dp), fontWeight = FontWeight.Bold)
+            UiText("翻译目标跟随应用语言", Modifier.padding(horizontal = 18.dp, vertical = 4.dp), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
+        }
+        items(languages, key = { it.code }) { language ->
+            ListItem(headlineContent = { UiText(language.name) }, trailingContent = { RadioButton(LocalUiLanguage.current.code == language.code, { store.save(options.copy(language = language.code)) }) },
+                modifier = Modifier.clickable { store.save(options.copy(language = language.code)) })
+        }
+        item {
+            UiText("通过主题包导入更多语言", Modifier.padding(18.dp), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            HorizontalDivider()
+            SettingsToggle("自动翻译", "自动将消息和内容翻译为界面语言，随时可查看原文", options.autoTranslate) { store.save(options.copy(autoTranslate = it)) }
+            UiText("首次翻译会下载语言模型，完成后可离线使用", Modifier.padding(horizontal = 18.dp), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            UiText("语言不支持自动翻译时保留原文", Modifier.padding(horizontal = 18.dp, vertical = 6.dp), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            HorizontalDivider(Modifier.padding(top = 16.dp))
+            UiText("外观", Modifier.padding(18.dp), fontWeight = FontWeight.Bold)
+        }
+        items(listOf("system" to "跟随系统", "light" to "浅色", "dark" to "深色")) { (id, label) ->
+            ListItem(headlineContent = { UiText(label) }, trailingContent = { RadioButton(options.appearance == id, { store.save(options.copy(appearance = id)) }) },
+                modifier = Modifier.clickable { store.save(options.copy(appearance = id)) })
+        }
+        item {
+            HorizontalDivider()
+            SettingsToggle("顶栏背景模糊", "保持文字清晰，Android 12 及以上生效", options.blur) { store.save(options.copy(blur = it)) }
+            SettingsToggle("滚动隐藏顶栏", "上滑收起，下滑恢复", options.hideHeader) { store.save(options.copy(hideHeader = it)) }
+        }
+    }
+}
+
 @Composable private fun SettingsToggle(title: String, description: String, enabled: Boolean, change: (Boolean) -> Unit) {
     Row(Modifier.fillMaxWidth().clickable { change(!enabled) }.padding(horizontal = 18.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f).padding(end = 12.dp)) {
-            Text(title, fontWeight = FontWeight.SemiBold)
-            Text(description, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            UiText(title, fontWeight = FontWeight.SemiBold)
+            UiText(description, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         Switch(enabled, change)
     }
 }
 
 @Composable internal fun ModManager() {
-    val store = LocalMods.current ?: return
-    var message by remember { mutableStateOf<String?>(null) }
     LazyColumn(Modifier.fillMaxWidth()) {
-        item { RuntimeModulePanel(); HorizontalDivider() }
-        item { if (LocalFeatures.current.enabled(Feature.CODE_MOD_WINDOW)) { Text("以下为关键词规则包（格式 1），可立即启停；代码和页面扩展请使用上方手机模块。", Modifier.padding(18.dp)); HorizontalDivider() } }
+        item { RuntimeModulePanel() }
         item {
-            Column(Modifier.padding(18.dp)) {
-                Text("ZIP 规则包", fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                Text("支持补充屏蔽关键词和账号。请从设置首页的统一入口导入 ZIP。", fontSize = 13.sp)
-                message?.let { Text(it, color = MaterialTheme.colorScheme.primary) }
-                if (store.packs.isEmpty()) Text("尚未安装规则包", Modifier.padding(vertical = 16.dp))
-            }
+            UiText("关键词规则包在内容筛选中管理", Modifier.padding(18.dp),
+                fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        items(store.packs, key = { it.id }) { pack ->
-            SettingsToggle(pack.name, "版本 ${pack.version}  关键词 ${pack.words.size} 条  账号 ${pack.accounts.size} 个", pack.enabled) { store.toggle(pack.id, it) }
-            TextButton(onClick = { store.remove(pack.id); message = "已卸载 ${pack.name}，消息恢复显示" }, modifier = Modifier.padding(start = 12.dp)) { Text("卸载") }
-            HorizontalDivider()
-        }
-        item { Text("格式：ZIP 根目录只放 mod.json\n必填：formatVersion（1）、id、name、version\n可选：hideKeywords、hideAccounts（字符串数组）\n同一 id 再次导入会替换旧规则", Modifier.padding(18.dp), fontSize = 12.sp) }
     }
 }
 

@@ -3,8 +3,8 @@
 ## 目录约定
 
 - `project-specs/`：项目设置说明、Mod 规范、订阅规范和导入文件格式说明。
-- `imported-modules/`：可以复制到手机并从应用内导入的文件。`source-subscriptions/` 放 RSS/OPML JSON，`app-packs/` 放服务、筛选、翻译、Breaking、数据栏目和主题配置，`mods/` 放 ZIP Mod。
-- `mods/`：模块源码、编译脚本和源码重建基线。此目录用于制作模块，不作为手机导入文件收纳处。
+- `imported-modules/`：可以复制到手机并从应用内导入的文件。`source-subscriptions/` 放 RSS/OPML，`app-packs/` 放主题、合并订阅和内容筛选，`mods/` 放手机运行时或旧规则 ZIP。
+- `mods/`：模块源码、编译脚本和源码重建基线；`source-patch-examples/` 存放电脑重建示例，`legacy-configs/` 保留历史翻译器配置。这些文件不属于当前手机导入。
 - `app/` 与 `worker/`：Android 应用和 Cloudflare Worker 源码。
 
 新增导入文件时，放进 `imported-modules/` 对应子目录；字段、目录和导入限制写入 `project-specs/import-formats/`，总览链接维护在本目录。

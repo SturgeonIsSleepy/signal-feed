@@ -35,20 +35,20 @@ import java.time.Instant
     val panel = panels.firstOrNull { it.optString("id") == selected } ?: panels.firstOrNull()
     Column {
         Row(Modifier.fillMaxWidth().padding(18.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("数据栏目", fontSize = 24.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-            if (panel != null) Text("${panels.size} 个栏目", style = MaterialTheme.typography.bodySmall)
+            UiText("数据栏目", fontSize = 24.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+            if (panel != null) UiText("${panels.size} 个栏目", style = MaterialTheme.typography.bodySmall)
         }
         if (panels.isEmpty()) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("还没有数据栏目", fontWeight = FontWeight.Bold)
-                    Text("在设置中导入赛历、榜单或自定义数据文件", style = MaterialTheme.typography.bodySmall)
+                    UiText("还没有数据栏目", fontWeight = FontWeight.Bold)
+                    UiText("在设置中导入订阅包，可包含赛历、榜单或自定义内容", style = MaterialTheme.typography.bodySmall)
                 }
             }
             return@Column
         }
         Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            panels.forEach { item -> FilterChip(selected = panel?.optString("id") == item.optString("id"), onClick = { selected = item.optString("id") }, label = { Text(item.optString("name")) }) }
+            panels.forEach { item -> FilterChip(selected = panel?.optString("id") == item.optString("id"), onClick = { selected = item.optString("id") }, label = { UiText(rememberContentTranslation(item.optString("name")).body) }) }
         }
         when (panel?.optString("kind")) {
             "f1-calendar" -> DataPage(f1, ai, f1Message, aiMessage, now, onF1Refresh, onAiRefresh, tabs = listOf(0))
@@ -82,30 +82,31 @@ import java.time.Instant
     LazyColumn(contentPadding = PaddingValues(bottom = 24.dp)) {
         item {
             Row(Modifier.fillMaxWidth().padding(horizontal = 18.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(config.optString("description"), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
-                if (url.isNotEmpty()) TextButton(onClick = ::refresh) { Text("刷新") }
+                Text(rememberContentTranslation(config.optString("description")).body, Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
+                if (url.isNotEmpty()) TextButton(onClick = ::refresh) { UiText("刷新") }
             }
-            error?.let { Text(it, Modifier.padding(horizontal = 18.dp), color = MaterialTheme.colorScheme.error) }
-            updated?.let { Text("更新：${java.text.DateFormat.getDateTimeInstance().format(it)}", Modifier.padding(horizontal = 18.dp), style = MaterialTheme.typography.bodySmall) }
+            error?.let { UiText(it, Modifier.padding(horizontal = 18.dp), color = MaterialTheme.colorScheme.error) }
+            updated?.let { UiText("更新：${fullDateTime(it)}", Modifier.padding(horizontal = 18.dp), style = MaterialTheme.typography.bodySmall) }
         }
         items(list, key = { list.indexOf(it) }) { row ->
             val title = row.optString(config.optString("titleKey", "title"))
             val detail = row.optString(config.optString("detailKey", "detail"))
+            val content = rememberContentTranslation(if (detail.isBlank()) title else "$title\n\n$detail").body
             val value = row.optDouble(config.optString("valueKey", "value"), 0.0).takeIf(Double::isFinite) ?: 0.0
             val link = row.optString(config.optString("linkKey", "url"))
             Column(Modifier.fillMaxWidth().clickable(enabled = link.startsWith("https://")) { openOriginal(context, link) }.padding(horizontal = 18.dp, vertical = 14.dp)) {
-                Text(title, fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+                Text(content.substringBefore("\n\n"), fontWeight = FontWeight.SemiBold, fontSize = 16.sp, lineHeight = 25.sp)
                 if (config.optString("kind") == "calendar") {
                     val time = row.opt(config.optString("timeKey", "startAt"))
                     val millis = when (time) { is Number -> time.toLong(); is String -> runCatching { Instant.parse(time).toEpochMilli() }.getOrNull(); else -> null }
-                    if (millis != null) Text(java.text.DateFormat.getDateTimeInstance().format(millis), color = MaterialTheme.colorScheme.primary)
+                    if (millis != null) UiText(fullDateTime(millis), color = MaterialTheme.colorScheme.primary)
                 }
                 if (config.optString("kind") == "leaderboard") {
-                    Text(row.optString(config.optString("valueKey", "value")))
+                    UiText(row.optString(config.optString("valueKey", "value")))
                     LinearProgressIndicator(progress = { if (maximum > 0) (value / maximum).coerceIn(0.0, 1.0).toFloat() else 0f }, modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp))
                 }
-                if (detail.isNotEmpty()) Text(detail, style = MaterialTheme.typography.bodyMedium)
-                if (link.startsWith("https://")) Text("查看来源 ↗", color = MaterialTheme.colorScheme.primary)
+                if (detail.isNotEmpty()) Text(content.substringAfter("\n\n", detail), style = MaterialTheme.typography.bodyMedium, lineHeight = 24.sp)
+                if (link.startsWith("https://")) UiText("查看来源 ↗", color = MaterialTheme.colorScheme.primary)
             }
             HorizontalDivider()
         }

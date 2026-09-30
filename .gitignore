@@ -32,3 +32,4 @@ app/google-services.json
 # Local release assets
 /release-artifacts/
 /downloads/
+/test-artifacts/

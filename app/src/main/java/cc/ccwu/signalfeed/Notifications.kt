@@ -27,7 +27,7 @@ object Notifications {
     fun configure(context: Context) {
         val manager = context.getSystemService(NotificationManager::class.java)
         manager.createNotificationChannel(NotificationChannel(channel, "Breaking", NotificationManager.IMPORTANCE_HIGH))
-        val rules = ShellPacks.get(context).breakingPacks.value
+        val rules = ShellPacks.get(context).breakingRules()
         if (rules.isEmpty()) {
             WorkManager.getInstance(context).cancelUniqueWork("breaking-poll")
             if (FirebaseApp.getApps(context).isNotEmpty()) FirebaseMessaging.getInstance().unsubscribeFromTopic(channel)
@@ -56,7 +56,10 @@ object Notifications {
         if (!account.followed || account.muted) return
         val dao = FeedDatabase.get(context).feedDao()
         val post = dao.post(postId) ?: return
-        if (!ImportedRules.breaking(ShellPacks.get(context).breakingPacks.value, body, accountId,
+        val shell = ShellPacks.get(context)
+        if (ImportedRules.hide(shell.filterPacks.value, body, accountId, dao.postTopicIds(postId).toSet())) return
+        if (context.getSharedPreferences("reading", Context.MODE_PRIVATE).getBoolean("mods_enabled", true) && ModStore(context).hides(body, accountId)) return
+        if (!ImportedRules.breaking(ShellPacks.get(context).breakingRules(), body, accountId,
                 dao.postTopicIds(postId).toSet(), post.importance)) return
         val preferences = context.getSharedPreferences("notifications", Context.MODE_PRIVATE)
         val seen = preferences.getStringSet("seen", emptySet()).orEmpty()
@@ -65,10 +68,17 @@ object Notifications {
             .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP)
         val pending = PendingIntent.getActivity(context, postId.hashCode(), intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        val options = ReaderOptionsStore.get(context).options.value
+        val text = if (options.autoTranslate && context.getSharedPreferences("reading", Context.MODE_PRIVATE).getBoolean("translation", true)) {
+            val language = availableLanguages(shell.theme.value).firstOrNull { it.code == options.language }?.code ?: "zh"
+            kotlinx.coroutines.withTimeoutOrNull(10_000) {
+                runCatching { ContentTranslation.translate(context, readablePost(post.body, accountId).body, language) }.getOrDefault(body)
+            } ?: body
+        } else body
         val notification = NotificationCompat.Builder(context, channel)
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setContentTitle("${account.name} · Breaking")
-            .setContentText(body.take(180)).setStyle(NotificationCompat.BigTextStyle().bigText(body.take(180)))
+            .setContentText(text.take(180)).setStyle(NotificationCompat.BigTextStyle().bigText(text.take(180)))
             .setAutoCancel(true).setContentIntent(pending).setPriority(NotificationCompat.PRIORITY_HIGH).build()
         try {
             NotificationManagerCompat.from(context).notify(postId.hashCode(), notification)
@@ -81,7 +91,7 @@ object Notifications {
 
 class BreakingMessagingService : FirebaseMessagingService() {
     override fun onNewToken(token: String) {
-        if (FirebaseApp.getApps(this).isNotEmpty() && ShellPacks.get(this).breakingPacks.value.isNotEmpty()) FirebaseMessaging.getInstance().subscribeToTopic("breaking")
+        if (FirebaseApp.getApps(this).isNotEmpty() && ShellPacks.get(this).breakingRules().isNotEmpty()) FirebaseMessaging.getInstance().subscribeToTopic("breaking")
     }
     override fun onMessageReceived(message: RemoteMessage) {
         val postId = message.data["postId"] ?: return
@@ -99,7 +109,7 @@ class BreakingPollWorker(context: Context, params: WorkerParameters) : Coroutine
             val dao = FeedDatabase.get(applicationContext).feedDao()
             val preferences = applicationContext.getSharedPreferences("notifications", Context.MODE_PRIVATE)
             val initialized = preferences.getBoolean("initialized", false)
-            val rules = ShellPacks.get(applicationContext).breakingPacks.value
+            val rules = ShellPacks.get(applicationContext).breakingRules()
             if (rules.isEmpty()) return Result.success()
             val recent = dao.recentPosts(System.currentTimeMillis() - 24 * 60 * 60_000).filter {
                 ImportedRules.breaking(rules, it.body, it.accountId, dao.postTopicIds(it.id).toSet(), it.importance)

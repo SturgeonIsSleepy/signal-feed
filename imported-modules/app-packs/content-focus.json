@@ -1,0 +1,14 @@
+{
+  "formatVersion": 1,
+  "type": "content-filter",
+  "id": "personal-focus",
+  "name": "个人关注策略",
+  "description": "屏蔽营销与预告，标记重要 F1、AI 消息。关键词和门槛可自行修改。",
+  "rules": [
+    { "action": "hide", "keywords": ["抽奖转发", "限时秒杀", "敬请期待", "点击领取福利"] }
+  ],
+  "breaking": [
+    { "topics": ["F1"], "minimumImportance": 80 },
+    { "topics": ["AI"], "minimumImportance": 85 }
+  ]
+}

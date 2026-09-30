@@ -1,9 +1,20 @@
-# 可导入文件
+# 手机导入文件
 
-本目录集中存放可以复制到手机并从 SignalFeed「设置 → 导入文件」导入的文件。应用会先识别类型，再请用户确认。格式说明统一放在项目根目录的 `project-specs/`。
+复制文件到手机，从 SignalFeed「设置 → 导入文件」选择，确认识别类型后安装。格式和示例说明见 [导入说明合集](../project-specs/import-formats/README.md)，说明仅保存在项目中。
 
-- `source-subscriptions/`：RSS / Atom JSON 订阅文件。
-- `app-packs/`：聚合服务、筛选规则、翻译器、Breaking、数据栏目和主题配置。
-- `mods/`：可在手机端安装的规则或运行时 ZIP Mod，以及仅供电脑重建的源码补丁示例。
+当前导入分四类：
 
-`mods/` 是源码、打包工具和基线目录；这里收纳的是最终导入包。源码重建基线留在 `mods/baselines/`，不要当作手机模块安装。
+- 主题包：深浅色配色和附加语言字典
+- 订阅：RSS/OPML、聚合服务账号和数据栏目
+- 内容筛选：屏蔽、保留与 Breaking 策略
+- 手机 Mod：含预编译 DEX 的运行时 ZIP，安装和卸载均在手机完成
+
+## 目录
+
+- `source-subscriptions/`：RSS/Atom JSON 和 OPML
+- `app-packs/`：四类中的主题、订阅和内容筛选 JSON，保留兼容的独立服务、Breaking 和数据栏目文件
+- `mods/`：格式 3 手机 Mod 和兼容格式 1 规则 ZIP
+
+优先使用 `theme-midnight-ja.json`、`subscription-personal.json`、`content-focus.json` 三个合并示例。默认不会安装示例，服务地址的可达性取决于手机网络。
+
+电脑重建示例移动到项目根的 `mods/source-patch-examples/`；历史翻译器 JSON 保留在 `mods/legacy-configs/`，不能用当前手机入口导入。模块源码与基线在项目根 `mods/`，不要当作手机模块安装。

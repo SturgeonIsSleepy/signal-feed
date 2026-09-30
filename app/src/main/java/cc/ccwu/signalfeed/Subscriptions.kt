@@ -40,7 +40,7 @@ internal class Subscriptions private constructor(private val context: Context) {
         val bytes = input.readBytesLimited(1024 * 1024)
         parse(bytes.toString(Charsets.UTF_8))
     }
-    private fun parse(text: String): List<Subscription> {
+    internal fun parse(text: String): List<Subscription> {
         val result = mutableListOf<Subscription>()
         fun add(url: String, name: String, topic: String, enabled: Boolean = true) {
             val parsed = url.toHttpUrlOrNull() ?: error("订阅地址无效")
